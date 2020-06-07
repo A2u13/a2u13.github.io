@@ -4,6 +4,31 @@
   
     
     <entry>
+      <title>JavaScript闭包</title>
+      <link href="/2020/06/06/JavaScript%E9%97%AD%E5%8C%85/"/>
+      <url>/2020/06/06/JavaScript%E9%97%AD%E5%8C%85/</url>
+      
+        <content type="html"><![CDATA[<p><strong>本文内容:</strong></p><p>JavaScript闭包概念以及应用</p><a id="more"></a><h1 id="变量作用域"><a href="#变量作用域" class="headerlink" title="变量作用域"></a>变量作用域</h1><h2 id="全局变量"><a href="#全局变量" class="headerlink" title="全局变量"></a>全局变量</h2><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606154108463.png" alt="image-20200606154108463"></p><p>在函数体外定义的变量为全局变量（即window对象），任何函数都可以直接访问全局变量中定义的变量</p><h2 id="局部变量"><a href="#局部变量" class="headerlink" title="局部变量"></a>局部变量</h2><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606154533658.png" alt="image-20200606154533658"></p><p>很明显，定义在函数内部的变量为函数私有变量，在函数内部可以被访问到，而在外部是不可以访问到函数内部定义的变量</p><blockquote><p>函数内部变量一定要通过<code>var</code>进行声明！</p></blockquote><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606154618263.png" alt="image-20200606154618263"></p><p>但这里需要注意的是，在局部变量的声明当中一定要使用<code>var</code>进行变量声明，否则声明的为全局变量，函数内外都可以访问到</p><h1 id="如何访问函数内部变量？"><a href="#如何访问函数内部变量？" class="headerlink" title="如何访问函数内部变量？"></a>如何访问函数内部变量？</h1><p>由于<code>JavaScript</code>函数的特性，父函数中定义的子函数对于父函数的属性都是可见的，反之父函数对于子函数内部的变量是不可知，这个概念和定义在全局域中的函数不可被外部访问到内部变量的道理是一致的</p><p>举个例子：</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606155235492.png" alt="image-20200606155235492"></p><p>反之不可以</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606155400209.png" alt="image-20200606155400209"></p><p>但这里有个特点就是，既然子函数可以读取到父函数的变量值，那么我们如果子函数当做父函数的返回值的话，效果如何呢？</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606155735292.png" alt="image-20200606155735292"></p><p>合在一起就是这个，简单理解一下就可以</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606155943782.png" alt="image-20200606155943782"></p><h1 id="JavaScript闭包"><a href="#JavaScript闭包" class="headerlink" title="JavaScript闭包"></a>JavaScript闭包</h1><blockquote><p>「闭包」，是指拥有多个变量和绑定了这些变量的环境的表达式（通常是一个函数），因而这些变量也是该表达式的一部分。</p></blockquote><p>上面提到的<code>func_2</code>函数就是我们闭包了</p><p>这里套用阮一峰的一个例子</p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">f1</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line"></span><br><span class="line">　　　　<span class="keyword">var</span> n=<span class="number">999</span>;</span><br><span class="line"></span><br><span class="line">　　　　nAdd=<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;n+=<span class="number">1</span>&#125;</span><br><span class="line"></span><br><span class="line">　　　　<span class="function"><span class="keyword">function</span> <span class="title">f2</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">　　　　　　<span class="built_in">console</span>.log(n);</span><br><span class="line">　　　　&#125;</span><br><span class="line"></span><br><span class="line">　　　　<span class="keyword">return</span> f2;</span><br><span class="line"></span><br><span class="line">　　&#125;</span><br><span class="line"></span><br><span class="line">　　<span class="keyword">var</span> result=f1();</span><br><span class="line"></span><br><span class="line">　　result(); <span class="comment">// 999</span></span><br><span class="line"></span><br><span class="line">　　nAdd();</span><br><span class="line"></span><br><span class="line">　　result(); <span class="comment">// 1000</span></span><br></pre></td></tr></table></figure><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606180855282.png" alt="image-20200606180855282"></p><p>这里给的解释是<code>f2</code>为闭包函数，其中<code>f1</code>函数返回值为<code>f2</code>，从而可以访问到<code>f1</code>中的内部变量<strong>n</strong>，这里由于<code>var result=f1();</code>的存在，使得<code>f2</code>成为了一个全局变量，在内存中持续存在，从而不会被浏览器的回收机制给回收。</p><p>其中有一点，<code>nAdd=function(){n+=1}</code>，这个由于没有使用<code>var</code>声明，所以ndd实际上为全局变量，这样使得在每次调用<code>nAdd()</code>时，都会对函数内部的变量进行修改</p><h2 id="this关键字"><a href="#this关键字" class="headerlink" title="this关键字"></a>this关键字</h2><p><a href="https://www.quirksmode.org/js/this.html" target="_blank" rel="noopener">https://www.quirksmode.org/js/this.html</a></p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">doSomething</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">   <span class="keyword">this</span>.style.color = <span class="string">'#cc0000'</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200607123716078.png" alt="image-20200607123716078"></p><blockquote><p>如果嵌套函数作为函数调用，其this值不是全局对象（非严格模式下）就是undefined（严格模式下）; 如果嵌套函数作为方法调用，其this值指向调用它的对象</p></blockquote><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">element.onclick = doSomething;</span><br></pre></td></tr></table></figure><p>该函数将全部复制到<code>onclick</code>属性（现在变成方法）。因此，如果执行事件处理程序，则<code>this</code>引用HTML元素，并且该元素将 <code>color</code>被更改</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200607124938299.png" alt="image-20200607124938299"></p><p>如果作为函数调用</p><figure class="highlight html"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">element</span> <span class="attr">onclick</span>=<span class="string">"doSomething()"</span>&gt;</span></span><br></pre></td></tr></table></figure><p>这时候<code>this</code>指向的是<code>window</code>对象，这个肯定不会存在<code>style.color</code>属性的，所以就会报错</p><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200607125205921.png" alt="image-20200607125205921"></p><p><strong>区别</strong></p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">element.onclick = doSomething;</span><br><span class="line"><span class="built_in">console</span>.log(element.onclick)</span><br></pre></td></tr></table></figure><p>得到结果是</p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">doSomething</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="keyword">this</span>.style.color = <span class="string">'#cc0000'</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>而如果作为函数引用来使用</p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;element onclick=<span class="string">"doSomething()"</span>&gt;</span><br><span class="line"><span class="built_in">console</span>.log(element.onclick)</span><br></pre></td></tr></table></figure><p>得到的结果是</p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">onclick</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">doSomething()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>可以明显看到区别所在</p><h2 id="几个思考题"><a href="#几个思考题" class="headerlink" title="几个思考题"></a>几个思考题</h2><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> name = <span class="string">"The Window"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> object = &#123;</span><br><span class="line">  name : <span class="string">"My Object"</span>,</span><br><span class="line"></span><br><span class="line">  getNameFunc : <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">this</span>.name;</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">alert(object.getNameFunc()());</span><br></pre></td></tr></table></figure><p><img src="https://a2u13-pic.oss-cn-chengdu.aliyuncs.com/pic/image-20200606183837220.png" alt="image-20200606183837220"></p><p>这个的坑点在于理解<code>this</code>的作用域</p><p>所以这里指向的是全局变量<code>name</code>，打印出<code>The Window</code></p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> name = <span class="string">"The Window"</span>;</span><br><span class="line"></span><br><span class="line">　　<span class="keyword">var</span> object = &#123;</span><br><span class="line">　　　　name : <span class="string">"My Object"</span>,</span><br><span class="line"></span><br><span class="line">　　　　getNameFunc : <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">　　　　　　<span class="keyword">var</span> that = <span class="keyword">this</span>;</span><br><span class="line">　　　　　　<span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">　　　　　　　　<span class="keyword">return</span> that.name;</span><br><span class="line">　　　　　　&#125;;</span><br><span class="line"></span><br><span class="line">　　　　&#125;</span><br><span class="line"></span><br><span class="line">　　&#125;;</span><br><span class="line"></span><br><span class="line">　　alert(object.getNameFunc()());</span><br></pre></td></tr></table></figure><p>这个我认为是吧<code>this</code>的结果保存到<code>that</code>之后，然后通过返回<code>that.name</code>，这个实际上返回的是作为<code>object</code>对象的<code>name</code>，调用的是局部变量值<code>object.name</code></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> JavaScript </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 闭包 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>异步编程:从高并发爬虫看异步编程</title>
       <link href="/2020/04/14/%E5%BC%82%E6%AD%A5%E7%BC%96%E7%A8%8B-%E4%BB%8E%E9%AB%98%E5%B9%B6%E5%8F%91%E7%88%AC%E8%99%AB%E7%9C%8B%E5%BC%82%E6%AD%A5%E7%BC%96%E7%A8%8B/"/>
       <url>/2020/04/14/%E5%BC%82%E6%AD%A5%E7%BC%96%E7%A8%8B-%E4%BB%8E%E9%AB%98%E5%B9%B6%E5%8F%91%E7%88%AC%E8%99%AB%E7%9C%8B%E5%BC%82%E6%AD%A5%E7%BC%96%E7%A8%8B/</url>
@@ -13,7 +38,7 @@
       
       <categories>
           
-          <category> python </category>
+          <category> 安全研发 </category>
           
       </categories>
       
@@ -57,14 +82,14 @@
       
       <categories>
           
-          <category> 漏洞研究 </category>
+          <category> 前端安全 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> CSP </tag>
+            <tag> 跨域方案 </tag>
             
         </tags>
       
@@ -107,7 +132,7 @@
       
       <categories>
           
-          <category> 原理分析 </category>
+          <category> 前端安全 </category>
           
       </categories>
       
@@ -132,7 +157,7 @@
       
       <categories>
           
-          <category> 源码分析 </category>
+          <category> 安全研发 </category>
           
       </categories>
       
@@ -182,7 +207,7 @@
       
       <categories>
           
-          <category> 源码分析 </category>
+          <category> 安全研发 </category>
           
       </categories>
       
@@ -207,10 +232,16 @@
       
       <categories>
           
-          <category> XSS </category>
+          <category> 前端安全 </category>
           
       </categories>
       
+      
+        <tags>
+            
+            <tag> XSS </tag>
+            
+        </tags>
       
     </entry>
     
@@ -226,14 +257,14 @@
       
       <categories>
           
-          <category> 漏洞研究 </category>
+          <category> JavaScript </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> JavaScript </tag>
+            <tag> 原型链污染 </tag>
             
         </tags>
       
@@ -274,6 +305,14 @@
           
       </categories>
       
+      
+        <tags>
+            
+            <tag> TCP </tag>
+            
+            <tag> UDP </tag>
+            
+        </tags>
       
     </entry>
     
@@ -318,7 +357,7 @@
       
       <categories>
           
-          <category> 漏洞研究 </category>
+          <category> 前端安全 </category>
           
       </categories>
       
@@ -343,7 +382,7 @@
       
       <categories>
           
-          <category> 渗透 </category>
+          <category> 渗透知识 </category>
           
       </categories>
       
@@ -443,7 +482,7 @@
       
       <categories>
           
-          <category> 渗透 </category>
+          <category> 渗透测试 </category>
           
       </categories>
       
@@ -468,7 +507,7 @@
       
       <categories>
           
-          <category> 渗透 </category>
+          <category> 渗透测试 </category>
           
       </categories>
       
