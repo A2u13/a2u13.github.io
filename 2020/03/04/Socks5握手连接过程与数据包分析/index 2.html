@@ -1,0 +1,350 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Socks5握手连接过程与数据包分析 | A2u13's Blog</title><meta name="description" content="本文内容：  本文主要分析Socks5的TCP连接过程，对官方RFC文档进行翻译和解读  然后简单用Go语言实现了一下Socks5的TCP连接转发  最后对数据包进行分析，分析握手连接过程中的字节信息变化     RFC文档解读RFC1928:https:&#x2F;&#x2F;tools.ietf.org&#x2F;html&#x2F;rfc1928 客户端第一次请求当客户端向服务端发送连接请求的时候，会发送如下信息：    VER"><meta name="keywords" content="Socks5"><meta name="author" content="A2u13"><meta name="copyright" content="A2u13"><meta name="format-detection" content="telephone=no"><link rel="shortcut icon" href="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/favicon.png"><meta http-equiv="Cache-Control" content="no-transform"><meta http-equiv="Cache-Control" content="no-siteapp"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="dns-prefetch" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="http://ta.qq.com"/><link rel="dns-prefetch" href="http://ta.qq.com"/><link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="crossorigin"/><link rel="dns-prefetch" href="https://fonts.googleapis.com"/><meta name="twitter:card" content="summary"><meta name="twitter:title" content="Socks5握手连接过程与数据包分析"><meta name="twitter:description" content="本文内容：  本文主要分析Socks5的TCP连接过程，对官方RFC文档进行翻译和解读  然后简单用Go语言实现了一下Socks5的TCP连接转发  最后对数据包进行分析，分析握手连接过程中的字节信息变化     RFC文档解读RFC1928:https:&#x2F;&#x2F;tools.ietf.org&#x2F;html&#x2F;rfc1928 客户端第一次请求当客户端向服务端发送连接请求的时候，会发送如下信息：    VER"><meta name="twitter:image" content="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529224524.png"><meta property="og:type" content="article"><meta property="og:title" content="Socks5握手连接过程与数据包分析"><meta property="og:url" content="https://a2u13.com/2020/03/04/Socks5%E6%8F%A1%E6%89%8B%E8%BF%9E%E6%8E%A5%E8%BF%87%E7%A8%8B%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%8C%85%E5%88%86%E6%9E%90/"><meta property="og:site_name" content="A2u13's Blog"><meta property="og:description" content="本文内容：  本文主要分析Socks5的TCP连接过程，对官方RFC文档进行翻译和解读  然后简单用Go语言实现了一下Socks5的TCP连接转发  最后对数据包进行分析，分析握手连接过程中的字节信息变化     RFC文档解读RFC1928:https:&#x2F;&#x2F;tools.ietf.org&#x2F;html&#x2F;rfc1928 客户端第一次请求当客户端向服务端发送连接请求的时候，会发送如下信息：    VER"><meta property="og:image" content="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529224524.png"><meta property="article:published_time" content="2020-03-03T16:13:27.000Z"><meta property="article:modified_time" content="2020-06-07T06:28:28.931Z"><script src="https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js"></script><script>var autoChangeMode = '1'
+var t = Cookies.get("theme")
+if (autoChangeMode == '1'){
+  var isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches
+  var isLightMode = window.matchMedia("(prefers-color-scheme: light)").matches
+  var isNotSpecified = window.matchMedia("(prefers-color-scheme: no-preference)").matches
+  var hasNoSupport = !isDarkMode && !isLightMode && !isNotSpecified
+
+  if (t === undefined){
+    if (isLightMode) activateLightMode()
+    else if (isDarkMode) activateDarkMode()
+    else if (isNotSpecified || hasNoSupport){
+      console.log('You specified no preference for a color scheme or your browser does not support it. I Schedule dark mode during night time.')
+      var now = new Date()
+      var hour = now.getHours()
+      var isNight = hour < 6 || hour >= 18
+      isNight ? activateDarkMode() : activateLightMode()
+  }
+  } else if (t == 'light') activateLightMode()
+  else activateDarkMode()
+
+} else if (autoChangeMode == '2'){
+  now = new Date();
+  hour = now.getHours();
+  isNight = hour < 6 || hour >= 18
+  if(t === undefined) isNight? activateDarkMode() : activateLightMode()
+  else if (t === 'light') activateLightMode()
+  else activateDarkMode() 
+} else {
+  if ( t == 'dark' ) activateDarkMode()
+  else if ( t == 'light') activateLightMode()
+}
+
+function activateDarkMode(){
+  document.documentElement.setAttribute('data-theme', 'dark')
+  if (document.querySelector('meta[name="theme-color"]') !== null){
+    document.querySelector('meta[name="theme-color"]').setAttribute('content','#000')
+  }
+}
+function activateLightMode(){
+  document.documentElement.setAttribute('data-theme', 'light')
+  if (document.querySelector('meta[name="theme-color"]') !== null){
+  document.querySelector('meta[name="theme-color"]').setAttribute('content','#fff')
+  }
+}</script><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@latest/css/font-awesome.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.css"><link rel="canonical" href="https://a2u13.com/2020/03/04/Socks5%E6%8F%A1%E6%89%8B%E8%BF%9E%E6%8E%A5%E8%BF%87%E7%A8%8B%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%8C%85%E5%88%86%E6%9E%90/"><link rel="prev" title="Mysql的getshell与提权总结" href="https://a2u13.com/2020/03/06/Mysql%E7%9A%84getshell%E4%B8%8E%E6%8F%90%E6%9D%83%E6%80%BB%E7%BB%93/"><link rel="next" title="BUUCTF刷题笔记（六）" href="https://a2u13.com/2020/02/28/BUUCTF%E5%88%B7%E9%A2%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AD%EF%BC%89/"><script src="https://tajs.qq.com/stats?sId=&lt;script type=&quot;text/javascript&quot; src=&quot;http://tajs.qq.com/stats?sId=66562096&quot; charset=&quot;UTF-8&quot;&gt;&lt;/script&gt;" charset="UTF-8"></script><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Titillium+Web"><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"search.xml","languages":{"hits_empty":"找不到您查询的内容:${query}"}},
+  translate: {"defaultEncoding":2,"translateDelay":0,"cookieDomain":"https://a2u13.com/","msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"簡"},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  bookmark: {
+    message_prev: '按',
+    message_next: '键将本页加入书签'
+  },
+  runtime_unit: '天',
+  runtime: true,
+  copyright: undefined,
+  ClickShowText: undefined,
+  medium_zoom: true,
+  fancybox: false,
+  Snackbar: {"bookmark":{"message_prev":"按","message_next":"键将本页加入书签"},"chs_to_cht":"你已切换为繁体","cht_to_chs":"你已切换为简体","day_to_night":"你已切换为深色模式","night_to_day":"你已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#2d3035","position":"bottom-left"},
+  baiduPush: false,
+  highlightCopy: true,
+  highlightLang: false,
+  highlightShrink: 'false',
+  isFontAwesomeV5: false,
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+  
+}</script><script>var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isSidebar: true  
+  }</script><noscript><style>
+#page-header {
+  opacity: 1
+}
+.justified-gallery img{
+  opacity: 1
+}
+</style></noscript><meta name="generator" content="Hexo 4.2.1"><link rel="alternate" href="/atom.xml" title="A2u13's Blog" type="application/atom+xml">
+</head><body><div id="mobile-sidebar"><div id="menu_mask"></div><div id="mobile-sidebar-menus"><div class="mobile_author_icon"><img class="avatar-img" src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/4A56A073590349364F32B58397E8B06C.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="mobile_post_data"><div class="mobile_data_item is-center"><div class="mobile_data_link"><a href="/archives/"><div class="headline">文章</div><div class="length_num">36</div></a></div></div><div class="mobile_data_item is-center">      <div class="mobile_data_link"><a href="/tags/"><div class="headline">标签</div><div class="length_num">23</div></a></div></div><div class="mobile_data_item is-center">     <div class="mobile_data_link"><a href="/categories/"><div class="headline">分类</div><div class="length_num">15</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fa fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fa fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fa fa-heart"></i><span> 关于</span></a></div></div></div></div><i class="fa fa-arrow-right on" id="toggle-sidebar" aria-hidden="true">     </i><div id="sidebar"><div class="sidebar-toc"><div class="sidebar-toc__title">目录</div><div class="sidebar-toc__progress"><span class="progress-notice">你已经读了</span><span class="progress-num">0</span><span class="progress-percentage">%</span><div class="sidebar-toc__progress-bar">     </div></div><div class="sidebar-toc__content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#RFC文档解读"><span class="toc-number">1.</span> <span class="toc-text">RFC文档解读</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#客户端第一次请求"><span class="toc-number">1.1.</span> <span class="toc-text">客户端第一次请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#服务端第一次回复"><span class="toc-number">1.2.</span> <span class="toc-text">服务端第一次回复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#客户端第二次请求"><span class="toc-number">1.3.</span> <span class="toc-text">客户端第二次请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#服务端第二次回复"><span class="toc-number">1.4.</span> <span class="toc-text">服务端第二次回复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#完整的连接流程"><span class="toc-number">1.5.</span> <span class="toc-text">完整的连接流程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Go语言实现-Demo"><span class="toc-number">2.</span> <span class="toc-text">Go语言实现(Demo)</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#数据包分析"><span class="toc-number">3.</span> <span class="toc-text">数据包分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#客户端第一次请求-1"><span class="toc-number">3.1.</span> <span class="toc-text">客户端第一次请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#服务端第一次回复-1"><span class="toc-number">3.2.</span> <span class="toc-text">服务端第一次回复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#客户端第二次请求-1"><span class="toc-number">3.3.</span> <span class="toc-text">客户端第二次请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#服务端第二次回复-1"><span class="toc-number">3.4.</span> <span class="toc-text">服务端第二次回复</span></a></li></ol></li></ol></div></div></div><div id="body-wrap"><div id="web_bg" data-type="photo"></div><div class="post-bg" id="nav" style="background-image: url(https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529224524.png)"><div id="page-header"><span class="pull_left" id="blog_name"><a class="blog_title" id="site-name" href="/">A2u13's Blog</a></span><span class="pull_right menus"><div id="search_button"><a class="site-page social-icon search"><i class="fa fa-search fa-fw"></i><span> 搜索</span></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fa fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fa fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fa fa-heart"></i><span> 关于</span></a></div></div><span class="toggle-menu close"><a class="site-page"><i class="fa fa-bars fa-fw" aria-hidden="true"></i></a></span></span></div><div id="post-info"><div id="post-title"><div class="posttitle">Socks5握手连接过程与数据包分析</div></div><div id="post-meta"><div class="meta-firstline"><time class="post-meta__date"><span class="post-meta__date-created" title="发表于 2020-03-04 00:13:27"><i class="fa fa-calendar" aria-hidden="true"></i> 发表于 2020-03-04</span><span class="post-meta__separator">|</span><span class="post-meta__date-updated" title="更新于 2020-06-07 14:28:28"><i class="fa fa-history" aria-hidden="true"></i> 更新于 2020-06-07</span></time><span class="post-meta__categories"><span class="post-meta__separator">|</span><i class="fa fa-inbox post-meta__icon" aria-hidden="true"></i><a class="post-meta__categories" href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/">计算机网络</a></span></div><div class="meta-secondline"> <span class="post-meta-wordcount"><i class="post-meta__icon fa fa-file-word-o" aria-hidden="true"></i><span>字数总计:</span><span class="word-count">2.4k</span><span class="post-meta__separator">|</span><i class="post-meta__icon fa fa-clock-o" aria-hidden="true"></i><span>阅读时长: 8 分钟</span></span></div><div class="meta-thirdline"><span class="post-meta-pv-cv"></span><span class="post-meta-commentcount"></span></div></div></div></div><main class="layout_post" id="content-inner"><article id="post"><div class="post-content" id="article-container"><p><strong>本文内容：</strong></p>
+<ul>
+<li><p>本文主要分析Socks5的TCP连接过程，对官方RFC文档进行翻译和解读</p>
+</li>
+<li><p>然后简单用Go语言实现了一下Socks5的TCP连接转发</p>
+</li>
+<li><p>最后对数据包进行分析，分析握手连接过程中的字节信息变化</p>
+</li>
+</ul>
+<a id="more"></a>
+
+<h1 id="RFC文档解读"><a href="#RFC文档解读" class="headerlink" title="RFC文档解读"></a>RFC文档解读</h1><p>RFC1928:<a href="https://tools.ietf.org/html/rfc1928" target="_blank" rel="noopener">https://tools.ietf.org/html/rfc1928</a></p>
+<h2 id="客户端第一次请求"><a href="#客户端第一次请求" class="headerlink" title="客户端第一次请求"></a>客户端第一次请求</h2><p>当客户端向服务端发送连接请求的时候，会发送如下信息：</p>
+<table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">NMETHODS</th>
+<th align="center">METHODS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+<td align="center">1 TO 255</td>
+</tr>
+</tbody></table>
+<p><strong>VER</strong>的值当被设置为<strong>0x05</strong>，标明当前<strong>Socks</strong>的版本信息<br><strong>NMETHODS</strong>（方法选择）中包含在<strong>METHODS</strong>中出现的方法标识的数据（用字节表示）</p>
+<h2 id="服务端第一次回复"><a href="#服务端第一次回复" class="headerlink" title="服务端第一次回复"></a>服务端第一次回复</h2><table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">METHOD</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>VAR</strong>被设置为<strong>0x05</strong>，标明所选<strong>Socks</strong>的版本</li>
+<li><strong>METHOD</strong>参数如下：</li>
+<li><strong>0x00</strong>，说明服务端连接无需经过验证（NO AUTHENTICATION REQUIRED）<ul>
+<li><strong>0x01</strong>，通用安全服务应用程序接口（GSSAPI）</li>
+<li><strong>0x02</strong>，要求用户名/密码认证（USERNAME/PASSWORD）</li>
+<li><strong>0x03 to 0x7F</strong>，IANA 分配（IANA ASSIGNED）</li>
+<li><strong>0x80 TO 0xFE</strong>，私人方法保留（RESERVED FOR PRIVATE METHODS）</li>
+<li><strong>0xFF</strong>，则说明服务端不支持客户端列出的所选方法，此时客服端应该关闭连接（NO ACCEPTABLE METHODS）</li>
+</ul>
+</li>
+</ul>
+<h2 id="客户端第二次请求"><a href="#客户端第二次请求" class="headerlink" title="客户端第二次请求"></a>客户端第二次请求</h2><p>当客户端与服务端关于方法的协商完毕后，客户端将发送完整的详细请求信息</p>
+<table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">CMD</th>
+<th align="center">RSV</th>
+<th align="center">ATYP</th>
+<th align="center">DST.ADDR</th>
+<th align="center">DST.PORT</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+<td align="center">0x00</td>
+<td align="center">1</td>
+<td align="center">Variable</td>
+<td align="center">2</td>
+</tr>
+</tbody></table>
+<ul>
+<li><p><strong>VER</strong>的值当被设置为<strong>0x05</strong>，标明当前<strong>Socks</strong>的版本信息</p>
+</li>
+<li><p><strong>CMD</strong>参数如下：</p>
+<ul>
+<li><strong>0x01</strong>，建立连接（CONNECT）</li>
+<li><strong>0x02</strong>，绑定（Bind）</li>
+<li><strong>0x03</strong>，使用<strong>UDP</strong>（UDP ASSOCIATE）</li>
+</ul>
+</li>
+<li><p><strong>RSV</strong>，保留字段，被设置为<strong>0x00</strong></p>
+</li>
+<li><p><strong>ATYP</strong>，目标地址类型，参数如下：</p>
+<ul>
+<li><strong>0x01</strong>，IPV4地址，长度为4个字节</li>
+<li><strong>0x03</strong>，域名，其中第一个字节用来标识域名的长度</li>
+<li><strong>0x04</strong>，IPV6地址，长度为16个字节</li>
+</ul>
+</li>
+<li><p><strong>DST.ADDR</strong>，目标地址（长度可变）</p>
+</li>
+<li><p><strong>DST.PORT</strong>，目标端口</p>
+</li>
+</ul>
+<h2 id="服务端第二次回复"><a href="#服务端第二次回复" class="headerlink" title="服务端第二次回复"></a>服务端第二次回复</h2><p>客户端与服务端建立连接并完成请求后，便立即发送<strong>SOCKS</strong>请求信息认证协商</p>
+<p>服务器评估该请求，并返回如下形式的回复：</p>
+<table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">REP</th>
+<th align="center">PSV</th>
+<th align="center">ATYP</th>
+<th align="center">BND.ADDR</th>
+<th align="center">BND.PORT</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+<td align="center">0x00</td>
+<td align="center">1</td>
+<td align="center">Variable</td>
+<td align="center">2</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>VER</strong>的值当被设置为<strong>0x05</strong>，标明当前<strong>Socks</strong>的版本信息</li>
+<li><strong>REP</strong>，回复字段，参数如下：<ul>
+<li><strong>0x00</strong>， 连接成功（succeeded）</li>
+<li><strong>0x01</strong>，服务器发生故障（general SOCKS server failure）</li>
+<li><strong>0x02</strong>，由于规则连接不容许（connection not allowed by ruleset）</li>
+<li><strong>0x03</strong>，网络不可达（Network unreachable）</li>
+<li><strong>0x04</strong>，主机不可达（Host unreachable）</li>
+<li><strong>0x05</strong>，链接被拒绝（ConnectiSSon refused）</li>
+<li><strong>0x06</strong>，TTL终止失效（TTL expired）</li>
+<li><strong>0x07</strong>，命令不被支持（Command not supported）</li>
+<li><strong>0x08</strong>，地址类型不被支持（Address type not supported）</li>
+<li><strong>0x09 to 0xFF</strong>，没有被设计（unassigned）</li>
+</ul>
+</li>
+<li><strong>PSV</strong>，保留字段，设置为<strong>0x00</strong></li>
+<li><strong>AYTP</strong>，目标地址，参数如下：<ul>
+<li><strong>0x01</strong>，IPV4地址，长度为4个字节</li>
+<li><strong>0x03</strong>，域名，其中第一个字节用来标识域名的长度</li>
+<li><strong>0x04</strong>，IPV6地址，长度为16个字节</li>
+</ul>
+</li>
+<li><strong>BND.ADDR</strong>，服务器绑定地址</li>
+<li><strong>BND.PORT</strong>，服务器绑定端口</li>
+</ul>
+<p>对于不同<strong>CMD</strong>的请求，<strong>BND.ADDR</strong>和<strong>BND.PORT</strong>有如下区别：</p>
+<ul>
+<li><p>CONNECT</p>
+<p>在对<strong>CONNECT</strong>的答复中</p>
+<p><strong>BND.PORT</strong>包含服务器分配用于连接到目标主机的端口号，而<strong>BND.ADDR</strong>包含关联的IP地址</p>
+<p>服务端提供的<strong>BND.ADDR</strong>通常不同于客户端用于访问*<em>SOCKS *</em>服务器的IP地址，因为此类服务器通常是多宿主的</p>
+<p><strong>SOCKS</strong>服务器将使用<strong>DST.ADDR</strong>和<strong>DST.PORT</strong>以及客户端源地址和端口来评估<strong>CONNECT</strong>请求。</p>
+</li>
+<li><p>BIND（这个好像没啥用）</p>
+<p><strong>BIND</strong>请求用于要求客户端接受来自服务器的连接的协议中。<br><strong>FTP</strong>是一个众所周知的示例，它使用主要的客户端到服务器连接来发送命令和状态报告<br>但可以使用服务器到客户端连接来按需传输数据（例如LS，GET，PUT）。</p>
+</li>
+<li><p>UDP ASSOCIATE</p>
+<p>用于处理<strong>UDP</strong>请求报文<br><strong>DST.ADDR</strong>和<strong>DST.PORT</strong>字段包含客户端期望用于在其上发送<strong>UDP</strong>数据报以进行关联的地址和端口。<br>服务器可以使用该信息来限制对关联的访问<br>如果客户端在<strong>UDP ASSOCIATE</strong>时没有发送信息，则客户端必须使用全零的端口号和地址。<br>当<strong>UDP ASSOCIATE</strong>请求到达的<strong>TCP</strong>连接终止时，<strong>UDP</strong>关联终止。<br>在对<strong>UDP ASSOCIATE</strong>请求的回复中，<strong>BND.PORT</strong>和<strong>BND.ADDR</strong>字段指示客户端必须在其中发送要中继的UDP请求消息的端口号/地址。</p>
+</li>
+</ul>
+<p>回复处理</p>
+<p>当回复（<strong>REP</strong>值不是<strong>0x00</strong>）表示失败时，<br><strong>SOCKS服</strong>务器务必在发送回复后不久终止<strong>TCP</strong>连接。在检测到导致故障的情况后，该时间不得超过10秒。<br>如果回复（<strong>REP</strong>值为<strong>0x00</strong>）表示成功，并且请求是<strong>BIND</strong>或<strong>CONNECT</strong><br>则客户端现在可以开始传递数据</p>
+<h2 id="完整的连接流程"><a href="#完整的连接流程" class="headerlink" title="完整的连接流程"></a>完整的连接流程</h2><ol>
+<li>向服务器的端口建立<strong>TCP</strong>连接。</li>
+<li>向服务器发送 <code>0x05 0x01 0x00</code></li>
+<li>如果接到 <code>0x05 0x00</code> 则是可以代理</li>
+<li>发送 <code>0x05 0x01 0x00 地址类型 + 目的地址 + 目的端口</code></li>
+<li>接受服务器返回的自身地址和端口，连接完成以后操作和直接与目的方进行TCP连接相同。</li>
+</ol>
+<h1 id="Go语言实现-Demo"><a href="#Go语言实现-Demo" class="headerlink" title="Go语言实现(Demo)"></a>Go语言实现(Demo)</h1><figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"io"</span></span><br><span class="line">	<span class="string">"net"</span></span><br><span class="line">	<span class="string">"strconv"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">//Socks5规定版本号</span></span><br><span class="line"><span class="keyword">const</span>(</span><br><span class="line">	VER = <span class="number">0X05</span></span><br><span class="line">)</span><br><span class="line"><span class="comment">//Socks5服务端第一次回复METHOD字段</span></span><br><span class="line"><span class="keyword">const</span>(</span><br><span class="line">	NoAuthValue = <span class="number">0x00</span></span><br><span class="line">	GSSAPIValue = <span class="number">0x01</span></span><br><span class="line">	NeedUserAndPasswordValue = <span class="number">0x02</span></span><br><span class="line">	MethodNotSupportValue = <span class="number">0xFF</span></span><br><span class="line">)</span><br><span class="line"><span class="comment">//Socks5服务端第二次回复REP字段</span></span><br><span class="line"><span class="keyword">const</span>(</span><br><span class="line">	SucceededConnectValue = <span class="number">0x00</span></span><br><span class="line">	SocksServerFailedValue = <span class="number">0x01</span></span><br><span class="line">	DisallowedByRulesetValue = <span class="number">0x02</span></span><br><span class="line">	NetworkUnreachableValue = <span class="number">0x03</span></span><br><span class="line">	HostUnreachableValue = <span class="number">0x04</span></span><br><span class="line">	ConnectRefusedValue = <span class="number">0x05</span></span><br><span class="line">	TTLExpiredValue = <span class="number">0x06</span></span><br><span class="line">	CMDNoSupportedValue = <span class="number">0x07</span></span><br><span class="line">	AddressTypeNotSupportValue = <span class="number">0x08</span></span><br><span class="line">)</span><br><span class="line"><span class="comment">//Socks5服务端第二次回复ATYP字段</span></span><br><span class="line"><span class="keyword">const</span>(</span><br><span class="line">	IPv4AddressValue = <span class="number">0x01</span></span><br><span class="line">	DomainAddressValue = <span class="number">0x03</span></span><br><span class="line">	IPv6AddressValue = <span class="number">0x04</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">//错误处理</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">checkError</span><span class="params">(err error)</span> <span class="params">(e <span class="keyword">string</span>)</span></span>&#123;</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(err)</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="comment">//服务器开始监听8081端口</span></span><br><span class="line">	fmt.Println(<span class="string">"Starting!"</span>)</span><br><span class="line">	l, err := net.Listen(<span class="string">"tcp"</span>,<span class="string">":8081"</span>)</span><br><span class="line">	checkError(err)</span><br><span class="line">	<span class="comment">//开始接受客户端连接</span></span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		a, err := l.Accept()</span><br><span class="line">		checkError(err)</span><br><span class="line">		<span class="comment">//并发处理</span></span><br><span class="line">		<span class="keyword">go</span> DealClient(a)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">DealClient</span><span class="params">(client net.Conn)</span></span>&#123;</span><br><span class="line">	<span class="keyword">if</span> client == <span class="literal">nil</span>&#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> client.Close()</span><br><span class="line"></span><br><span class="line">	<span class="keyword">var</span> buff [<span class="number">1024</span>]<span class="keyword">byte</span></span><br><span class="line"></span><br><span class="line">	length, err := client.Read(buff[:])</span><br><span class="line">	checkError(err)</span><br><span class="line">	<span class="keyword">if</span> buff[<span class="number">0</span>] == VER &#123;</span><br><span class="line">    <span class="comment">//服务器第一次回复，向客户端发送无需认证的消息</span></span><br><span class="line">		client.Write([]<span class="keyword">byte</span>&#123;VER, NoAuthValue&#125;)</span><br><span class="line">    <span class="comment">//读取客户端第二次请求的数据，同时把数据存入buff中</span></span><br><span class="line">		length, err = client.Read(buff[:])</span><br><span class="line">		checkError(err)</span><br><span class="line"></span><br><span class="line">		<span class="keyword">var</span> addr, port <span class="keyword">string</span></span><br><span class="line">		<span class="keyword">switch</span> buff[<span class="number">3</span>] &#123;</span><br><span class="line">    <span class="comment">//IPv4</span></span><br><span class="line">		<span class="keyword">case</span> IPv4AddressValue:</span><br><span class="line">			addr = net.IPv4(buff[<span class="number">4</span>], buff[<span class="number">5</span>], buff[<span class="number">6</span>], buff[<span class="number">7</span>]).String()</span><br><span class="line">    <span class="comment">//域名</span></span><br><span class="line">		<span class="keyword">case</span> DomainAddressValue:</span><br><span class="line">			addr = <span class="keyword">string</span>(buff[<span class="number">5</span> : <span class="number">5</span>+buff[<span class="number">4</span>]])</span><br><span class="line">    <span class="comment">//IPv6</span></span><br><span class="line">		<span class="keyword">case</span> IPv6AddressValue:</span><br><span class="line">			addr = net.IP&#123;buff[<span class="number">4</span>], buff[<span class="number">5</span>], buff[<span class="number">6</span>], buff[<span class="number">7</span>], buff[<span class="number">8</span>], buff[<span class="number">9</span>], buff[<span class="number">10</span>], buff[<span class="number">11</span>], buff[<span class="number">12</span>], buff[<span class="number">13</span>], buff[<span class="number">15</span>], buff[<span class="number">16</span>], buff[<span class="number">17</span>], buff[<span class="number">18</span>], buff[<span class="number">19</span>]&#125;.String()</span><br><span class="line">		&#125;</span><br><span class="line">    <span class="comment">//处理最后两字节端口</span></span><br><span class="line">		port = strconv.Itoa(<span class="keyword">int</span>(buff[length<span class="number">-2</span>])&lt;&lt;<span class="number">8</span> | <span class="keyword">int</span>(buff[length<span class="number">-1</span>]))</span><br><span class="line">		fmt.Println(addr+<span class="string">":"</span>+port)</span><br><span class="line">    <span class="comment">//请求目的地址</span></span><br><span class="line">		server, err := net.Dial(<span class="string">"tcp"</span>, net.JoinHostPort(addr, port))</span><br><span class="line">		checkError(err)</span><br><span class="line">		<span class="comment">//服务端第二次回复，向客户端发送握手成功</span></span><br><span class="line">		client.Write([]<span class="keyword">byte</span>&#123;<span class="number">0x05</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>&#125;)</span><br><span class="line">		<span class="comment">//TCP转发</span></span><br><span class="line">		<span class="keyword">go</span> io.Copy(server, client)</span><br><span class="line">		io.Copy(client, server)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里主要通过对<code>RFC1928</code>中规定的连接过程进行了实现</p>
+<p>同时利用Go语言的网络方面的并发高性能进行TCP连接与转发</p>
+<p>代码十分简陋，只能处理无需认证的Socks5请求，大概流程都写了注释，方便参考过程</p>
+<p>比如著名<code>SSR</code>等工具，会对数据进行加密转发，同时考虑到了<code>UDP</code>转发以及更多的误处理（不可多言-_-）</p>
+<h1 id="数据包分析"><a href="#数据包分析" class="headerlink" title="数据包分析"></a>数据包分析</h1><p>下载地址：<a href="http://a2u13-pic.oss-accelerate.aliyuncs.com/annex/socks5.pcapng" target="_blank" rel="noopener">Socks5流量包</a></p>
+<p>以上是我根据<code>Go</code>语言写的代码运行抓包而来</p>
+<p>这里分析数据交换过程</p>
+<p>由于本代码没有设置<code>KeepLive</code>，所以会重复进行<code>TCP</code>三次握手</p>
+<p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304003328.png" alt=""></p>
+<p>实际的<code>Socks5</code>握手在如图的红色框中的数据包<strong>[TCP segment of a reassembled PDU]</strong>中</p>
+<p>这里我们追踪其中一条即可</p>
+<h2 id="客户端第一次请求-1"><a href="#客户端第一次请求-1" class="headerlink" title="客户端第一次请求"></a>客户端第一次请求</h2><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304003556.png" alt=""></p>
+<p>这里客户端会向服务端发送连接请求</p>
+<p>由于这里无需验证，所以会请求<strong>0x05</strong>作为版本号，同时发送<strong>0x00</strong>表明自己是无需验证的连接</p>
+<h2 id="服务端第一次回复-1"><a href="#服务端第一次回复-1" class="headerlink" title="服务端第一次回复"></a>服务端第一次回复</h2><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304003832.png" alt=""></p>
+<p>原理一致，表明版本号以及说明自己支持无需验证的连接方式</p>
+<h2 id="客户端第二次请求-1"><a href="#客户端第二次请求-1" class="headerlink" title="客户端第二次请求"></a>客户端第二次请求</h2><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304003937.png" alt=""></p>
+<table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">CMD</th>
+<th align="center">RSV</th>
+<th align="center">ATYP</th>
+<th align="center">DST.ADDR</th>
+<th align="center">DST.PORT</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+<td align="center">0x00</td>
+<td align="center">1</td>
+<td align="center">Variable</td>
+<td align="center">2</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>VER</strong>的值当被设置为<strong>0x05</strong>，标明当前<strong>Socks</strong>的版本信息</li>
+<li><strong>CMD</strong>参数：<strong>0x01</strong>，建立连接（CONNECT）</li>
+<li><strong>RSV</strong>，保留字段，被设置为<strong>0x00</strong></li>
+<li><strong>ATYP</strong>，目标地址类型：<strong>0x03</strong>，域名，其中第一个字节用来标识域名的长度，这里为<strong>0x0d</strong></li>
+<li><strong>DST.ADDR</strong>，这里为<code>77 77 77 2e 62 61 69 64 75 2e 63 6f 6d</code>，指<code>www.baidu.com</code></li>
+<li><strong>DST.PORT</strong>，这里为<code>01 bb</code>，转化为十进制为<code>443</code>端口</li>
+</ul>
+<h2 id="服务端第二次回复-1"><a href="#服务端第二次回复-1" class="headerlink" title="服务端第二次回复"></a>服务端第二次回复</h2><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304004905.png" alt=""></p>
+<table>
+<thead>
+<tr>
+<th align="center">VER</th>
+<th align="center">REP</th>
+<th align="center">PSV</th>
+<th align="center">ATYP</th>
+<th align="center">BND.ADDR</th>
+<th align="center">BND.PORT</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0x05</td>
+<td align="center">1</td>
+<td align="center">0x00</td>
+<td align="center">1</td>
+<td align="center">Variable</td>
+<td align="center">2</td>
+</tr>
+</tbody></table>
+<ul>
+<li><p><strong>VER</strong>的值当被设置为<strong>0x05</strong>，标明当前<strong>Socks</strong>的版本信息</p>
+</li>
+<li><p><strong>REP</strong>，回复字段：<strong>0x00</strong>， 连接成功（succeeded）</p>
+</li>
+<li><p><strong>PSV</strong>，保留字段，设置为<strong>0x00</strong></p>
+</li>
+<li><p><strong>AYTP</strong>，绑定地址类型：<strong>0x01</strong>，IPV4地址，长度为4个字节</p>
+</li>
+</ul>
+<blockquote>
+<p>在对<strong>CONNECT</strong>的答复中<br><strong>BND.PORT</strong>包含服务器分配用于连接到目标主机的端口号，而<strong>BND.ADDR</strong>包含关联的IP地址</p>
+</blockquote>
+<ul>
+<li><p><strong>BND.ADDR</strong>，这里设置为<code>00 00 00 00</code></p>
+</li>
+<li><p><strong>BND.PORT</strong>，服务器绑定端口，这里为<code>00 00</code></p>
+</li>
+</ul>
+<p>到此握手结束，可以发送数据了，总体流程如下：</p>
+<p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200304010342.png" alt=""></p>
+<p>总之，本文只是简单介绍了<code>Socks5</code>的连接过程以及数据包分析</p>
+<p>如果对<code>Socks5</code>有更多的应用以及学习兴趣的话</p>
+<p>建议学习<a href="https://github.com/shadowsocks" target="_blank" rel="noopener">ShadowSocks</a>（逃…….</p>
+</div><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">A2u13</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://a2u13.com/2020/03/04/Socks5%E6%8F%A1%E6%89%8B%E8%BF%9E%E6%8E%A5%E8%BF%87%E7%A8%8B%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%8C%85%E5%88%86%E6%9E%90/">https://a2u13.com/2020/03/04/Socks5握手连接过程与数据包分析/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://a2u13.com" target="_blank">A2u13's Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Socks5/">Socks5</a></div><div class="post_share"><div class="social-share" data-image="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200710144709.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css"/><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js"></script></div></div><nav class="pagination_post" id="pagination"><div class="prev-post pull_left"><a href="/2020/03/06/Mysql%E7%9A%84getshell%E4%B8%8E%E6%8F%90%E6%9D%83%E6%80%BB%E7%BB%93/"><img class="prev_cover" src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529224142.png" onerror="onerror=null;src='/img/404.jpg'"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Mysql的getshell与提权总结</div></div></a></div><div class="next-post pull_right"><a href="/2020/02/28/BUUCTF%E5%88%B7%E9%A2%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AD%EF%BC%89/"><img class="next_cover" src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529222023.png" onerror="onerror=null;src='/img/404.jpg'"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">BUUCTF刷题笔记（六）</div></div></a></div></nav></article></main><footer id="footer" style="background-image: url(https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20200529224524.png)" data-type="photo"><div id="footer-wrap"><div class="copyright">&copy;2019 - 2020 By A2u13</div><div class="framework-info"><span>驱动 </span><a href="https://hexo.io" target="_blank" rel="noopener"><span>Hexo</span></a><span class="footer-separator">|</span><span>主题 </span><a href="https://github.com/jerryc127/hexo-theme-butterfly" target="_blank" rel="noopener"><span>Butterfly</span></a></div></div></footer></div><section class="rightside" id="rightside"><div id="rightside-config-hide"><i class="fa fa-book" id="readmode" title="阅读模式"></i><i class="fa fa-plus" id="font_plus" title="放大字体"></i><i class="fa fa-minus" id="font_minus" title="缩小字体"></i><a class="translate_chn_to_cht" id="translateLink" href="javascript:translatePage();" title="简繁转换" target="_self">繁</a><i class="darkmode fa fa-moon-o" id="darkmode" title="夜间模式"></i></div><div id="rightside-config-show"><div id="rightside_config" title="设置"><i class="fa fa-cog" aria-hidden="true"></i></div><i class="fa fa-list-ul close" id="mobile-toc-button" title="目录" aria-hidden="true"></i><i class="fa fa-arrow-up" id="go-up" title="回到顶部" aria-hidden="true"></i></div></section><div class="search-dialog" id="local-search"><div class="search-dialog__title" id="local-search-title">本地搜索</div><div id="local-input-panel"><div id="local-search-input"><div class="local-search-box"><input class="local-search-box--input" placeholder="搜索文章" type="text"/></div></div></div><hr/><div id="local-search-results"><div id="local-hits"></div><div id="local-stats"><div class="local-search-stats__hr" id="hr"><span>由</span> <a href="https://github.com/wzpan/hexo-generator-search" target="_blank" rel="noopener" style="color:#49B1F5;">hexo-generator-search</a>
+ <span>提供支持</span></div></div></div><span class="search-close-button"><i class="fa fa-times"></i></span></div><div class="search-mask"></div><script src="https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js"></script><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="/js/tw_cn.js"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom/dist/medium-zoom.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.js"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@3/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/pangu/dist/browser/pangu.min.js"></script><script>document.addEventListener('DOMContentLoaded', function() {
+      pangu.spacingElementById('content-inner')
+})</script><script src="/js/search/local-search.js"></script></body></html>
