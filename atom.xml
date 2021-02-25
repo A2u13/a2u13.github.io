@@ -41,30 +41,6 @@
   </entry>
   
   <entry>
-    <title>V8入门</title>
-    <link href="https://a2u13.com/2020/12/02/V8%E5%85%A5%E9%97%A8/"/>
-    <id>https://a2u13.com/2020/12/02/V8%E5%85%A5%E9%97%A8/</id>
-    <published>2020-12-02T07:59:55.000Z</published>
-    <updated>2020-12-12T16:46:11.941Z</updated>
-    
-    <content type="html"><![CDATA[<p><strong>本文内容：</strong></p><p><code>V8</code>的简单概念介绍以及入门</p><a id="more"></a><h1 id="d8调试选项"><a href="#d8调试选项" class="headerlink" title="d8调试选项"></a>d8调试选项</h1><p>初始<code>javascript</code>代码</p><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> hgg = <span class="string">"nb"</span>;</span><br></pre></td></tr></table></figure><blockquote><p>–print-ast 打印AST</p></blockquote><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20201203162701.png" alt="image-20201203162701240"></p><blockquote><p>–print-scopes 打印作用域</p></blockquote><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20201203162758.png" alt=""></p><blockquote><p>–print-bytecode 打印字节码</p></blockquote><p><img src="https://a2u13-pic.oss-accelerate.aliyuncs.com/pic/20201203162859.png" alt="image-20201203162859326"></p><blockquote><p>–trace-opt 查看优化代码</p></blockquote><blockquote><p>–trace-deopt 查看被反优化代码</p></blockquote>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;strong&gt;本文内容：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;code&gt;V8&lt;/code&gt;的简单概念介绍以及入门&lt;/p&gt;
-    
-    </summary>
-    
-    
-      <category term="浏览器安全" scheme="https://a2u13.com/categories/%E6%B5%8F%E8%A7%88%E5%99%A8%E5%AE%89%E5%85%A8/"/>
-    
-    
-      <category term="V8" scheme="https://a2u13.com/tags/V8/"/>
-    
-  </entry>
-  
-  <entry>
     <title>上海市大学生网络安全竞赛两道工控数据包题解</title>
     <link href="https://a2u13.com/2020/11/15/%E4%B8%8A%E6%B5%B7%E5%B8%82%E5%A4%A7%E5%AD%A6%E7%94%9F%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8%E7%AB%9E%E8%B5%9B%E4%B8%A4%E9%81%93%E5%B7%A5%E6%8E%A7%E6%95%B0%E6%8D%AE%E5%8C%85%E6%B5%81%E9%87%8F%E5%88%86%E6%9E%90%E9%A2%98%E8%A7%A3/"/>
     <id>https://a2u13.com/2020/11/15/%E4%B8%8A%E6%B5%B7%E5%B8%82%E5%A4%A7%E5%AD%A6%E7%94%9F%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8%E7%AB%9E%E8%B5%9B%E4%B8%A4%E9%81%93%E5%B7%A5%E6%8E%A7%E6%95%B0%E6%8D%AE%E5%8C%85%E6%B5%81%E9%87%8F%E5%88%86%E6%9E%90%E9%A2%98%E8%A7%A3/</id>
